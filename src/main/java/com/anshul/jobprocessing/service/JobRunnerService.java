@@ -1,18 +1,18 @@
 package com.anshul.jobprocessing.service;
 
+import com.anshul.jobprocessing.config.RemoteServiceConfig;
 import com.anshul.jobprocessing.entity.JobDetails;
 import com.anshul.jobprocessing.repository.JobDetailsRepo;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Random;
 
 import static com.anshul.jobprocessing.constants.GeneralConstants.*;
@@ -27,9 +27,8 @@ public class JobRunnerService {
     @Autowired
     private JobDetailsRepo jobDetailsRepo;
 
-    private final String triggerActionUrl = "http://localhost:8081/trigger-action";
-    private final String actionStatusUrl = "http://localhost:8081/<actionId>/action-status";
-    private final String actionResponseUrl = "http://localhost:8081/<actionId>/action-response";
+    @Autowired
+    private RemoteServiceConfig remoteServiceConfig;
 
     /**
      * This method will Execute the jobs
@@ -60,6 +59,7 @@ public class JobRunnerService {
                             case COMPLETED:
                                 response = getActionResponse(job.getActionId());
                                 if (response.equals(ERROR)) {
+                                    actionStatus = IN_PROGRESS;
                                     log.error("Error while fetching response for action: " + job.getActionId());
                                     break;
                                 }
@@ -95,7 +95,7 @@ public class JobRunnerService {
     private String sendTriggerRequest() {
 //        return RandomStringUtils.randomAlphabetic(8);
         try {
-            return restTemplate.exchange(triggerActionUrl, HttpMethod.GET, HttpEntity.EMPTY, String.class).getBody();
+            return restTemplate.exchange(remoteServiceConfig.getTriggerActionUrl(), HttpMethod.GET, HttpEntity.EMPTY, String.class).getBody();
         } catch (Exception e) {
             log.error("Error while sending trigger request: ", e);
             return ERROR;
@@ -108,7 +108,7 @@ public class JobRunnerService {
     private String getActionStatus(String actionId) {
 //        int rand = new Random().nextInt(4);
 //        return rand == 0 ? COMPLETED : rand == 1 ? FAILED : rand == 2 ? IN_PROGRESS : ERROR;
-        String url = actionStatusUrl.replaceFirst("<actionId>", actionId);
+        String url = remoteServiceConfig.getActionStatusUrl().replaceFirst("<actionId>", actionId);
         try {
             return restTemplate.exchange(url, HttpMethod.GET, HttpEntity.EMPTY, String.class).getBody();
         } catch (Exception e) {
@@ -122,7 +122,7 @@ public class JobRunnerService {
      */
     private String getActionResponse(String actionId) {
 //        return "Action response for " + actionId;
-        String url = actionResponseUrl.replaceFirst("<actionId>", actionId);
+        String url = remoteServiceConfig.getActionResponseUrl().replaceFirst("<actionId>", actionId);
         try {
             return restTemplate.exchange(url, HttpMethod.GET, HttpEntity.EMPTY, String.class).getBody();
         } catch (Exception e) {

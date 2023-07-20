@@ -17,7 +17,7 @@ public class JobSchedulerService {
     /**
      * Scheduler will run the job every five minute
      */
-    @Scheduled(cron = "* 0/5 * * * *", zone = "GMT+05:30")
+    @Scheduled(cron = "0 0/5 * * * *", zone = "GMT+05:30")
     public void runJob() {
         log.info("Running the job...");
         jobRunner.executeJob();

@@ -1,5 +1,6 @@
 package com.anshul.jobprocessing;
 
+import com.anshul.jobprocessing.config.RemoteServiceConfig;
 import com.anshul.jobprocessing.entity.JobDetails;
 import com.anshul.jobprocessing.repository.JobDetailsRepo;
 import com.anshul.jobprocessing.service.JobRunnerService;
@@ -35,20 +36,20 @@ public class JobRunnerServiceTest {
 
     @Mock
     private JobDetailsRepo jobDetailsRepo;
-
+    @Mock
+    private RemoteServiceConfig remoteServiceConfig;
     @Spy
     private RestTemplate restTemplate;
 
     private MockRestServiceServer mockServer;
 
     private String actionId;
-
     private String triggerActionUrl;
     private String actionStatusUrl;
     private String actionResponseUrl;
 
     @BeforeEach
-    void setBefore(){
+    void setBefore() {
         mockServer = MockRestServiceServer.createServer(restTemplate);
         actionId = "abc123";
         triggerActionUrl = "http://localhost:8081/trigger-action";
@@ -64,11 +65,13 @@ public class JobRunnerServiceTest {
         jobInProgress.setStatus(IN_PROGRESS);
 
         // step 1
+        when(remoteServiceConfig.getTriggerActionUrl()).thenReturn(triggerActionUrl);
         mockServer.expect(requestTo(triggerActionUrl)).andExpect(method(HttpMethod.GET))
                 .andRespond(withStatus(HttpStatus.OK).headers(new HttpHeaders()).body(actionId));
         when(jobDetailsRepo.save(any(JobDetails.class))).thenReturn(jobInProgress);
         when(jobDetailsRepo.findByStatus(IN_PROGRESS)).thenReturn(List.of(jobInProgress));
         // step 2
+        when(remoteServiceConfig.getActionStatusUrl()).thenReturn(actionStatusUrl);
         mockServer.expect(requestTo(actionStatusUrl)).andExpect(method(HttpMethod.GET))
                 .andRespond(withStatus(HttpStatus.OK).headers(new HttpHeaders()).body(IN_PROGRESS));
 
@@ -81,7 +84,7 @@ public class JobRunnerServiceTest {
     }
 
     @Test
-    @DisplayName("Validate for completed")
+    @DisplayName("Validate for completed job")
     public void testExecuteForCompletedJob() {
         JobDetails jobInProgress = new JobDetails();
         jobInProgress.setActionId(actionId);
@@ -92,16 +95,19 @@ public class JobRunnerServiceTest {
         jobCompleted.setResponse("Task Completed");
 
         // step 1
+        when(remoteServiceConfig.getTriggerActionUrl()).thenReturn(triggerActionUrl);
         mockServer.expect(requestTo(triggerActionUrl)).andExpect(method(HttpMethod.GET))
                 .andRespond(withStatus(HttpStatus.OK).headers(new HttpHeaders()).body(actionId));
         when(jobDetailsRepo.save(any(JobDetails.class))).thenReturn(jobInProgress).thenReturn(jobCompleted);
         when(jobDetailsRepo.findByStatus(IN_PROGRESS)).thenReturn(List.of(jobInProgress));
 
         // step 2
+        when(remoteServiceConfig.getActionStatusUrl()).thenReturn(actionStatusUrl);
         mockServer.expect(requestTo(actionStatusUrl)).andExpect(method(HttpMethod.GET))
                 .andRespond(withStatus(HttpStatus.OK).headers(new HttpHeaders()).body(COMPLETED));
 
         // step 3
+        when(remoteServiceConfig.getActionResponseUrl()).thenReturn(actionResponseUrl);
         mockServer.expect(requestTo(actionResponseUrl)).andExpect(method(HttpMethod.GET))
                 .andRespond(withStatus(HttpStatus.OK).headers(new HttpHeaders()).body("Task Completed"));
 
